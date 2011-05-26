@@ -1016,7 +1016,7 @@ class checks:
 			
 			try:
 				try:
-					self.mainLogger.debug('getMemoryUsage: attempting Popen (top)')				
+					self.mainLogger.debug('getMemoryUsage: attempting Popen (top)')
 					
 					# Force timeout using signals
 					signal.signal(signal.SIGALRM, self.signalHandler)
@@ -1064,6 +1064,50 @@ class checks:
 			
 			return {'physUsed' : physParts[3], 'physFree' : physParts[4], 'swapUsed' : swapParts[1], 'swapFree' : swapParts[2], 'cached' : 'NULL'}	
 			
+		elif sys.platform.find('sunos') != -1:
+			
+			self.mainLogger.debug('getMemoryUsage: sunos')
+			
+			self.mainLogger.debug('getMemoryUsage: attempting Popen (zonename)')
+			proc = subprocess.Popen(['zonename'], stdout = subprocess.PIPE, close_fds = True)
+			zonename = proc.communicate()[0].rstrip()
+
+			if int(platform.python_version_tuple()[1]) >= 6:
+				try:
+					proc.kill()
+				except OSError, e:	
+					self.mainLogger.debug('Process already terminated')
+			
+			if proc.returncode == 0:
+				self.mainLogger.debug('getMemoryUsage: zonename succeeded, using zonestat')
+				proc = subprocess.Popen(['zonestat', '-p', '-P', 'zones', '-r', 'memory', '-z', zoneName, '1', '1'], stdout = subprocess.PIPE, close_fds = True)
+				zonestats = proc.communicate()[0].split('\n')
+				
+				if int(platform.python_version_tuple()[1]) >= 6:
+					try:
+						proc.kill()
+					except OSError, e:
+						self.mainLogger.debug('Process already terminated')
+				
+				physstats = zonestats[0].split(':')
+				swapstats = zonestats[1].split(':')
+				
+				physUsed = int(re.match(r'\d+', physstats[4]).group(0)) / 1024
+				physTotal = int(re.match(r'\d+', physstats[6]).group(0)) / 1024
+				physFree = physTotal - physUsed 
+
+				swapUsed = int(re.match(r'\d+', swapstats[4]).group(0)) / 1024
+				swapTotal = int(re.match(r'\d+', swapstats[6]).group(0)) / 1024
+				swapFree = swapTotal - swapUsed
+				
+				self.mainLogger.debug('getMemoryUsage: parsed zonestat, completed, returning')
+				
+				return {'physUsed' : physUsed, 'physFree' : physFree, 'swapUsed' : swapUsed, 'swapFree' : swapFree, 'cached' : 'NULL'}	
+			
+			else:
+				self.mainLogger.debug('getMemoryUsage: zonename failed, using vmstat')
+				self.mainLogger.debug('getMemoryUsage: vmstat is not done yet, returning' )
+				return False
 		else:
 			self.mainLogger.debug('getMemoryUsage: other platform, returning')
 			return False
