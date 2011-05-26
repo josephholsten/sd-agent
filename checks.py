@@ -1080,7 +1080,7 @@ class checks:
 			
 			if proc.returncode == 0:
 				self.mainLogger.debug('getMemoryUsage: zonename succeeded, using zonestat')
-				proc = subprocess.Popen(['zonestat', '-p', '-P', 'zones', '-r', 'memory', '-z', zoneName, '1', '1'], stdout = subprocess.PIPE, close_fds = True)
+				proc = subprocess.Popen(['zonestat', '-p', '-P', 'zones', '-r', 'memory', '-z', zonename, '1', '1'], stdout = subprocess.PIPE, close_fds = True)
 				zonestats = proc.communicate()[0].split('\n')
 				
 				if int(platform.python_version_tuple()[1]) >= 6:
