@@ -22,6 +22,7 @@ if int(python_version[1]) >= 6:
     import json
 else:
     import minjson
+    json = None
 
 
 class App(object):
@@ -213,7 +214,14 @@ class PluginDownloader(Action):
         f.write(data)
         f.close()
         z = ZipFile(path, 'r')
-        z.extractall(os.path.dirname(path))
+        if json:
+            z.extractall(os.path.dirname(path))
+        else:
+            name = z.namelist()[0]
+            data = z.read(name)
+            f = open(os.path.join(os.path.dirname(path), name), 'w')
+            f.write(data)
+            f.close()
         z.close()
         os.remove(path)
 
