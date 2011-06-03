@@ -401,6 +401,45 @@ class checks:
 					return False
 			finally:
 				signal.alarm(0)
+		elif sys.platform.find('sunos') != -1:
+			self.mainLogger.debug('getCPUStats: sunos')
+
+			itemRegexp = re.compile(r'(\d+\.?\d*)[\s+]?')
+
+			try:
+				try:
+					signal.signal(signal.SIGALRM, self.signalHandler)
+					signal.alarm(15)
+
+					proc = subprocess.Popen(['mpstat', '1', '1'], stdout=subprocess.PIPE, close_fds=True)
+					stats = proc.communicate()[0].split('\n')
+
+					if int(pythonVersion[1]) >= 6:
+						try:
+							proc.kill()
+						except OSError, e:
+							pass
+
+					for statsIndex in range(1, len(stats)): # skip header
+						row = stats[statsIndex]
+
+						self.mainLogger.error('getCPUStats: parsing processor:' + row)
+						values = re.findall(itemRegexp, row)
+						self.mainLogger.error('getCPUStats: got processor: ' + ', '.join(values))
+
+						if values:
+							device = 'CPU%s' % values[0]
+							cpuStats[device] = {}
+							cpuStats[device]['%usr'] = values[12]
+							cpuStats[device]['%sys'] = values[13]
+							cpuStats[device]['%idle'] = values[15]
+
+				except Exception, ex:
+					import traceback
+					self.mainLogger.error('getCPUStats: exception = ' + traceback.format_exc())
+					return False
+			finally:
+				signal.alarm(0)
 		else:
 			self.mainLogger.debug('getCPUStats: unsupported platform')
 			return False
