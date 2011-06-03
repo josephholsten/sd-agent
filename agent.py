@@ -243,6 +243,13 @@ class agent(Daemon):
 			output = subprocess.Popen(['sysctl', 'hw.ncpu'], stdout=subprocess.PIPE, close_fds=True).communicate()[0].split(': ')[1]
 			return int(output)
 
+		if sys.platform.find('sunos') != -1:
+			proc = subprocess.Popen(['zonename'], stdout = subprocess.PIPE, close_fds = True)
+			zonename = proc.communicate()[0].rstrip()
+			if proc.returncode == 0:
+				output = subprocess.Popen(['zonestat', '-p', '-P', 'zones', '-r', 'processor-set', '-z', zonename, '1', '1'], stdout = subprocess.PIPE, close_fds = True).communicate()[0].split('\n')[0].split(':')[7]
+				return float(output)
+
 # Control of daemon		
 if __name__ == '__main__':	
 	
