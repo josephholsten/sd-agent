@@ -34,6 +34,7 @@ except ImportError: # Python < 2.5
 # module. We have a 2.4/2.5 compatible lib included with the agent but if we're
 # on 2.6 or above, we should use the core module which will be faster
 pythonVersion = platform.python_version_tuple()
+python24 = platform.python_version().startswith('2.4')
 
 # Build the request headers
 headers = {
@@ -85,8 +86,9 @@ class checks:
 					self.mainLogger.debug('getApacheStatus: attempting urlopen')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					req = urllib2.Request(self.agentConfig['apacheStatusUrl'], None, headers)
 					request = urllib2.urlopen(req)
@@ -110,7 +112,8 @@ class checks:
 					return False
 					
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 				
 			self.mainLogger.debug('getApacheStatus: urlopen success, start parsing')
 			
@@ -360,8 +363,9 @@ class checks:
 
 			try:
 				try:
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 
 					proc = subprocess.Popen(['mpstat', '-P', 'ALL', '1', '1'], stdout=subprocess.PIPE, close_fds=True)
 					stats = proc.communicate()[0]
@@ -400,7 +404,8 @@ class checks:
 					self.mainLogger.error('getCPUStats: exception = ' + traceback.format_exc())
 					return False
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 		else:
 			self.mainLogger.debug('getCPUStats: unsupported platform')
 			return False
@@ -415,9 +420,10 @@ class checks:
 			# Get output from df
 			try:
 				self.mainLogger.debug('getDiskUsage: attempting Popen')
-				
-				signal.signal(signal.SIGALRM, self.signalHandler)
-				signal.alarm(2)
+
+				if not python24:
+					signal.signal(signal.SIGALRM, self.signalHandler)
+					signal.alarm(2)
 				
 				proc = subprocess.Popen(['df', '-k'], stdout=subprocess.PIPE, close_fds=True) # -k option uses 1024 byte blocks so we can calculate into MB
 				df = proc.communicate()[0]
@@ -434,7 +440,8 @@ class checks:
 				return False
 
 		finally:
-			signal.alarm(0)
+			if not python24:
+				signal.alarm(0)
 		
 		self.mainLogger.debug('getDiskUsage: Popen success, start parsing')
 			
@@ -515,8 +522,9 @@ class checks:
 			try:
 				try:
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					proc = subprocess.Popen(['iostat', '-d', '1', '2', '-x', '-k'], stdout=subprocess.PIPE, close_fds=True)
 					stats = proc.communicate()[0]
@@ -564,7 +572,8 @@ class checks:
 					return False
 					
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 				
 		else:
 			self.mainLogger.debug('getIOStats: unsupported platform')
@@ -586,8 +595,9 @@ class checks:
 					self.mainLogger.debug('getLoadAvrgs: attempting open')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					if sys.platform == 'linux2':
 						loadAvrgProc = open('/proc/loadavg', 'r')
@@ -601,7 +611,8 @@ class checks:
 					return False
 			
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 			
 			self.mainLogger.debug('getLoadAvrgs: open success')
 				
@@ -617,8 +628,9 @@ class checks:
 					self.mainLogger.debug('getLoadAvrgs: attempting Popen')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					proc = subprocess.Popen(['uptime'], stdout=subprocess.PIPE, close_fds=True)
 					uptime = proc.communicate()[0]
@@ -635,7 +647,8 @@ class checks:
 					return False
 			
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 				
 			self.mainLogger.debug('getLoadAvrgs: Popen success')
 			
@@ -648,8 +661,9 @@ class checks:
 					self.mainLogger.debug('getLoadAvrgs: attempting Popen')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					proc = subprocess.Popen(['uptime'], stdout=subprocess.PIPE, close_fds=True)
 					uptime = proc.communicate()[0]
@@ -666,7 +680,8 @@ class checks:
 					return False
 					
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 				
 			self.mainLogger.debug('getLoadAvrgs: Popen success')
 		
@@ -678,8 +693,9 @@ class checks:
 					self.mainLogger.debug('getLoadAvrgs: attempting Popen')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					proc = subprocess.Popen(['uptime'], stdout=subprocess.PIPE, close_fds=True)
 					uptime = proc.communicate()[0]
@@ -696,7 +712,8 @@ class checks:
 					return False
 			
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 				
 			self.mainLogger.debug('getLoadAvrgs: Popen success')
 			
@@ -727,8 +744,9 @@ class checks:
 					self.mainLogger.debug('getMemoryUsage: attempting open')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					if sys.platform == 'linux2':
 						meminfoProc = open('/proc/meminfo', 'r')
@@ -742,7 +760,8 @@ class checks:
 					return False
 			
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 				
 			self.mainLogger.debug('getMemoryUsage: Popen success, parsing')
 			
@@ -836,8 +855,9 @@ class checks:
 					self.mainLogger.debug('getMemoryUsage: attempting sysinfo')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					proc = subprocess.Popen(['sysinfo', '-v', 'mem'], stdout = subprocess.PIPE, close_fds = True)
 					sysinfo = proc.communicate()[0]
@@ -901,7 +921,8 @@ class checks:
 					self.mainLogger.error('getMemoryUsage: exception = ' + traceback.format_exc())
 			
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 							
 			if physFree == None:
 			
@@ -912,8 +933,9 @@ class checks:
 						self.mainLogger.debug('getMemoryUsage: attempting Popen (sysctl)')
 						
 						# Force timeout using signals
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
+						if not python24:
+							signal.signal(signal.SIGALRM, self.signalHandler)
+							signal.alarm(15)
 						
 						proc = subprocess.Popen(['sysctl', '-n', 'hw.physmem'], stdout = subprocess.PIPE, close_fds = True)
 						physTotal = proc.communicate()[0]
@@ -941,7 +963,8 @@ class checks:
 						return False
 						
 				finally:
-					signal.alarm(0)
+					if not python24:
+						signal.alarm(0)
 					
 				self.mainLogger.debug('getMemoryUsage: Popen success, parsing')
 
@@ -978,14 +1001,16 @@ class checks:
 			
 			try:
 				# Force timeout using signals
-				signal.signal(signal.SIGALRM, self.signalHandler)
-				signal.alarm(15)
+				if not python24:
+					signal.signal(signal.SIGALRM, self.signalHandler)
+					signal.alarm(15)
 				
 				proc = subprocess.Popen(['swapinfo', '-k'], stdout = subprocess.PIPE, close_fds = True)
 				swapinfo = proc.communicate()[0]
 			
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 
 			if int(pythonVersion[1]) >= 6:
 				try:
@@ -1019,8 +1044,9 @@ class checks:
 					self.mainLogger.debug('getMemoryUsage: attempting Popen (top)')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					proc = subprocess.Popen(['top', '-l 1'], stdout=subprocess.PIPE, close_fds=True)
 					top = proc.communicate()[0]
@@ -1047,7 +1073,8 @@ class checks:
 					return False
 			
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 			
 			self.mainLogger.debug('getMemoryUsage: Popen success, parsing')
 			
@@ -1437,10 +1464,18 @@ class checks:
 			except ImportError, e:
 				self.mainLogger.error('getMySQLStatus: unable to import MySQLdb')
 				return False
+			
+			if 'MySQLPort' not in self.agentConfig:
+			
+				self.agentConfig['MySQLPort'] = 3306
+				
+			if 'MySQLSocket' not in self.agentConfig
+			
+				self.agentConfig['MySQLSocket'] = None
 				
 			# Connect
 			try:
-				db = MySQLdb.connect(self.agentConfig['MySQLServer'], self.agentConfig['MySQLUser'], self.agentConfig['MySQLPass'])
+				db = MySQLdb.connect(host=self.agentConfig['MySQLServer'], user=self.agentConfig['MySQLUser'], passwd=self.agentConfig['MySQLPass'], port=self.agentConfig['MySQLPort'], unix_socket=self.agentConfig['MySQLSocket'])
 				
 			except MySQLdb.OperationalError, message:
 				
@@ -1697,8 +1732,9 @@ class checks:
 					self.mainLogger.debug('getNetworkTraffic: attempting open')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					proc = open('/proc/net/dev', 'r')
 					lines = proc.readlines()
@@ -1710,7 +1746,8 @@ class checks:
 					return False
 					
 			finally:
-				signal.alarm(0)		
+				if not python24:
+					signal.alarm(0)		
 			
 			self.mainLogger.debug('getNetworkTraffic: open success, parsing')
 			
@@ -1782,8 +1819,9 @@ class checks:
 					self.mainLogger.debug('getNetworkTraffic: attempting Popen (netstat)')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					proc = subprocess.Popen(['netstat', '-nbid'], stdout=subprocess.PIPE, close_fds=True)
 					netstat = proc.communicate()[0]
@@ -1801,7 +1839,8 @@ class checks:
 					return False
 					
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 			
 			self.mainLogger.debug('getNetworkTraffic: open success, parsing')
 			
@@ -1900,8 +1939,9 @@ class checks:
 					self.mainLogger.debug('getNginxStatus: attempting urlopen')
 					
 					# Force timeout using signals
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
+					if not python24:
+						signal.signal(signal.SIGALRM, self.signalHandler)
+						signal.alarm(15)
 					
 					req = urllib2.Request(self.agentConfig['nginxStatusUrl'], None, headers)
 	
@@ -1927,7 +1967,8 @@ class checks:
 					return False
 					
 			finally:
-				signal.alarm(0)
+				if not python24:
+					signal.alarm(0)
 				
 			self.mainLogger.debug('getNginxStatus: urlopen success, start parsing')
 			
@@ -2005,8 +2046,9 @@ class checks:
 				self.mainLogger.debug('getProcesses: attempting Popen')
 				
 				# Force timeout using signals
-				signal.signal(signal.SIGALRM, self.signalHandler)
-				signal.alarm(15)
+				if not python24:
+					signal.signal(signal.SIGALRM, self.signalHandler)
+					signal.alarm(15)
 				
 				proc = subprocess.Popen(['ps', 'auxww'], stdout=subprocess.PIPE, close_fds=True)
 				ps = proc.communicate()[0]
@@ -2025,7 +2067,8 @@ class checks:
 				return False
 		
 		finally:
-			signal.alarm(0)
+			if not python24:
+				signal.alarm(0)
 		
 		self.mainLogger.debug('getProcesses: Popen success, parsing')
 		
@@ -2068,8 +2111,9 @@ class checks:
 				self.mainLogger.debug('getRabbitMQStatus: attempting authentication setup')
 				
 				# Force timeout using signals
-				signal.signal(signal.SIGALRM, self.signalHandler)
-				signal.alarm(15)
+				if not python24:
+					signal.signal(signal.SIGALRM, self.signalHandler)
+					signal.alarm(15)
 				
 				manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
 				manager.add_password(None, self.agentConfig['rabbitMQStatusUrl'], self.agentConfig['rabbitMQUser'], self.agentConfig['rabbitMQPass'])
@@ -2102,14 +2146,16 @@ class checks:
 				return False
 				
 		finally:
-			signal.alarm(0)
+			if not python24:
+				signal.alarm(0)
 			
 		try:
 			try:
 	
 				# Force timeout using signals
-				signal.signal(signal.SIGALRM, self.signalHandler)
-				signal.alarm(15)
+				if not python24:
+					signal.signal(signal.SIGALRM, self.signalHandler)
+					signal.alarm(15)
 				
 				if int(pythonVersion[1]) >= 6:
 					self.mainLogger.debug('getRabbitMQStatus: json read')
@@ -2148,6 +2194,7 @@ class checks:
 						connections = minjson.safeRead(response)
 	
 					status['connections'] = len(connections)
+					self.mainLogger.debug('getRabbitMQStatus: connections = %s', status['connections'])
 	
 					# Queues
 					url = split_url.scheme + '://' + split_url.netloc + '/api/queues'
@@ -2166,6 +2213,7 @@ class checks:
 						queues = minjson.safeRead(response)
 	
 					status['queues'] = queues
+					self.mainLogger.debug(status['queues'])
 	
 			except Exception, e:
 				import traceback
@@ -2173,7 +2221,8 @@ class checks:
 				return False
 				
 		finally:
-			signal.alarm(0)
+			if not python24:
+				signal.alarm(0)
 
 		self.mainLogger.debug('getRabbitMQStatus: completed, returning')
 
@@ -2314,8 +2363,9 @@ class checks:
 				self.mainLogger.debug('doPostBack: attempting postback: ' + self.agentConfig['sdUrl'])
 				
 				# Force timeout using signals
-				signal.signal(signal.SIGALRM, self.signalHandler)
-				signal.alarm(15)
+				if not python24:
+					signal.signal(signal.SIGALRM, self.signalHandler)
+					signal.alarm(15)
 				
 				# Build the request handler
 				request = urllib2.Request(self.agentConfig['sdUrl'] + '/postback/', postBackData, headers)
@@ -2343,7 +2393,8 @@ class checks:
 				return False
 
 		finally:
-			signal.alarm(0)
+			if not python24:
+				signal.alarm(0)
 			
 		self.mainLogger.debug('doPostBack: completed')
 	
@@ -2394,9 +2445,14 @@ class checks:
 		ioStats = self.getIOStats();
 		cpuStats = self.getCPUStats();
 		
+		if len(processes) > 4194304:
+			self.mainLogger.warn('doChecks: process list larger than 4MB limit, so it has been stripped')
+			
+			processes = []
+		
 		self.mainLogger.debug('doChecks: checks success, build payload')
 		
-		self.mainLogger.debug('doChecks: agent key = ' + self.agentConfig['agentKey'])
+		self.mainLogger.info('doChecks: agent key = ' + self.agentConfig['agentKey'])
 		
 		checksData = {}
 		
@@ -2494,7 +2550,7 @@ class checks:
 		
 		try:
 			checksData['internalHostname'] = socket.gethostname()
-			self.mainLogger.debug('doChecks: hostname = ' + checksData['internalHostname'])
+			self.mainLogger.info('doChecks: hostname = ' + checksData['internalHostname'])
 			
 		except socket.error, e:
 			self.mainLogger.debug('Unable to get hostname: ' + str(e))
@@ -2517,7 +2573,7 @@ class checks:
 		
 		payloadHash = md5(payload).hexdigest()
 		postBackData = urllib.urlencode({'payload' : payload, 'hash' : payloadHash})
-
+		
 		self.mainLogger.debug('doChecks: hashed, doPostBack')
 
 		self.doPostBack(postBackData)

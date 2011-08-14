@@ -46,7 +46,10 @@ case "$1" in
             mkdir -p $PIDPATH
             chown sd-agent:sd-agent $PIDPATH
         fi
+
+        su $AGENTUSER -c "python $AGENTPATH stop init"
         su $AGENTUSER -c "python $AGENTPATH start init --clean"
+
         if [ -f /etc/SuSE-release ]; then
                 rc_status -v
         elif [ -f /etc/debian_version ] || [ -f /etc/lsb-release ] || [ -f /etc/gentoo-release ]; then

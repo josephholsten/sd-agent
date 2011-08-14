@@ -214,14 +214,24 @@ class PluginDownloader(Action):
         f.write(data)
         f.close()
         z = ZipFile(path, 'r')
-        if json:
-            z.extractall(os.path.dirname(path))
-        else:
-            name = z.namelist()[0]
-            data = z.read(name)
-            f = open(os.path.join(os.path.dirname(path), name), 'w')
-            f.write(data)
-            f.close()
+        
+        try:
+            if json:
+                if self.verbose:
+                    print 'extract all: %s' % (os.path.dirname(path))
+                z.extractall(os.path.dirname(path))
+            else:
+                for name in z.namelist():
+                    if self.verbose:
+                        print 'extract loop: %s' % (os.path.join(os.path.dirname(path), name))
+                    data = z.read(name)
+                    f = open(os.path.join(os.path.dirname(path), name), 'w')
+                    f.write(data)
+                    f.close()
+        
+        except Exception, ex:
+            print ex
+
         z.close()
         os.remove(path)
 
