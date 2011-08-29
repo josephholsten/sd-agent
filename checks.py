@@ -109,8 +109,7 @@ class checks:
 				except Exception, e:
 					import traceback
 					self.mainLogger.error('Unable to get Apache status - Exception = ' + traceback.format_exc())
-					return False
-					
+					return False					
 			finally:
 				if not python24:
 					signal.alarm(0)
@@ -362,50 +361,48 @@ class checks:
 			valueRegexp = re.compile(r'\d+\.\d+')
 
 			try:
-				try:
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
+				proc = subprocess.Popen(['mpstat', '-P', 'ALL', '1', '1'], stdout=subprocess.PIPE, close_fds=True)
+				stats = proc.communicate()[0]
 
-					proc = subprocess.Popen(['mpstat', '-P', 'ALL', '1', '1'], stdout=subprocess.PIPE, close_fds=True)
-					stats = proc.communicate()[0]
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 
-					if int(pythonVersion[1]) >= 6:
-						try:
-							proc.kill()
-						except OSError, e:
-							pass
+				stats = stats.split('\n')
+				header = stats[2]
+				headerNames = re.findall(headerRegexp, header)
+				device = None
 
-					stats = stats.split('\n')
-					header = stats[2]
-					headerNames = re.findall(headerRegexp, header)
-					device = None
+				for statsIndex in range(4, len(stats)): # skip "all"
+					row = stats[statsIndex]
 
-					for statsIndex in range(4, len(stats)): # skip "all"
-						row = stats[statsIndex]
+					if not row: # skip the averages
+						break
 
-						if not row: # skip the averages
-							break
+					deviceMatch = re.match(itemRegexp, row)
 
-						deviceMatch = re.match(itemRegexp, row)
+					if deviceMatch is not None:
+						device = 'CPU%s' % deviceMatch.groups()[0]
 
-						if deviceMatch is not None:
-							device = 'CPU%s' % deviceMatch.groups()[0]
+					values = re.findall(valueRegexp, row.replace(',', '.'))
 
-						values = re.findall(valueRegexp, row.replace(',', '.'))
+					cpuStats[device] = {}
+					for headerIndex in range(0, len(headerNames)):
+						headerName = headerNames[headerIndex]
+						cpuStats[device][headerName] = values[headerIndex]
 
-						cpuStats[device] = {}
-						for headerIndex in range(0, len(headerNames)):
-							headerName = headerNames[headerIndex]
-							cpuStats[device][headerName] = values[headerIndex]
+			except Exception, ex:
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 
-				except Exception, ex:
-					import traceback
-					self.mainLogger.error('getCPUStats: exception = ' + traceback.format_exc())
-					return False
-			finally:
-				if not python24:
-					signal.alarm(0)
+				import traceback
+				self.mainLogger.error('getCPUStats: exception = ' + traceback.format_exc())
+				return False				
 		else:
 			self.mainLogger.debug('getCPUStats: unsupported platform')
 			return False
@@ -416,32 +413,30 @@ class checks:
 	def getDiskUsage(self):
 		self.mainLogger.debug('getDiskUsage: start')
 		
+		# Get output from df
 		try:
-			# Get output from df
 			try:
 				self.mainLogger.debug('getDiskUsage: attempting Popen')
 
-				if not python24:
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(2)
-				
 				proc = subprocess.Popen(['df', '-k'], stdout=subprocess.PIPE, close_fds=True) # -k option uses 1024 byte blocks so we can calculate into MB
 				df = proc.communicate()[0]
-	
+
 				if int(pythonVersion[1]) >= 6:
 					try:
 						proc.kill()
-					except OSError, e:
+					except Exception, e:
 						self.mainLogger.debug('Process already terminated')
 						
 			except Exception, e:
 				import traceback
 				self.mainLogger.error('getDiskUsage: df -k exception = ' + traceback.format_exc())
 				return False
-
 		finally:
-			if not python24:
-				signal.alarm(0)
+			if int(pythonVersion[1]) >= 6:
+				try:
+					proc.kill()
+				except Exception, e:
+					self.mainLogger.debug('Process already terminated')
 		
 		self.mainLogger.debug('getDiskUsage: Popen success, start parsing')
 			
@@ -521,18 +516,13 @@ class checks:
 			
 			try:
 				try:
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
 					proc = subprocess.Popen(['iostat', '-d', '1', '2', '-x', '-k'], stdout=subprocess.PIPE, close_fds=True)
 					stats = proc.communicate()[0]
 					
 					if int(pythonVersion[1]) >= 6:
 						try:
 							proc.kill()
-						except OSError, e:
+						except Exception, e:
 							self.mainLogger.debug('Process already terminated')
 					
 					recentStats = stats.split('Device:')[2].split('\n')
@@ -569,11 +559,13 @@ class checks:
 				except Exception, ex:
 					import traceback
 					self.mainLogger.error('getIOStats: exception = ' + traceback.format_exc())
-					return False
-					
-			finally:
-				if not python24:
-					signal.alarm(0)
+					return False					
+			finally:				
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 				
 		else:
 			self.mainLogger.debug('getIOStats: unsupported platform')
@@ -591,28 +583,18 @@ class checks:
 			self.mainLogger.debug('getLoadAvrgs: linux2')
 			
 			try:
-				try:
-					self.mainLogger.debug('getLoadAvrgs: attempting open')
+				self.mainLogger.debug('getLoadAvrgs: attempting open')
+				
+				if sys.platform == 'linux2':
+					loadAvrgProc = open('/proc/loadavg', 'r')
+				else:
+					loadAvrgProc = open(self.linuxProcFsLocation + '/loadavg', 'r')
 					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
-					if sys.platform == 'linux2':
-						loadAvrgProc = open('/proc/loadavg', 'r')
-					else:
-						loadAvrgProc = open(self.linuxProcFsLocation + '/loadavg', 'r')
-						
-					uptime = loadAvrgProc.readlines()
-					
-				except IOError, e:
-					self.mainLogger.error('getLoadAvrgs: exception = ' + str(e))
-					return False
-			
-			finally:
-				if not python24:
-					signal.alarm(0)
+				uptime = loadAvrgProc.readlines()
+				
+			except IOError, e:
+				self.mainLogger.error('getLoadAvrgs: exception = ' + str(e))
+				return False
 			
 			self.mainLogger.debug('getLoadAvrgs: open success')
 				
@@ -627,28 +609,25 @@ class checks:
 				try:
 					self.mainLogger.debug('getLoadAvrgs: attempting Popen')
 					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
 					proc = subprocess.Popen(['uptime'], stdout=subprocess.PIPE, close_fds=True)
 					uptime = proc.communicate()[0]
 					
 					if int(pythonVersion[1]) >= 6:
 						try:
 							proc.kill()
-						except OSError, e:
+						except Exception, e:
 							self.mainLogger.debug('Process already terminated')
 					
 				except Exception, e:
 					import traceback
 					self.mainLogger.error('getLoadAvrgs: exception = ' + traceback.format_exc())
-					return False
-			
+					return False			
 			finally:
-				if not python24:
-					signal.alarm(0)
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 				
 			self.mainLogger.debug('getLoadAvrgs: Popen success')
 			
@@ -660,28 +639,25 @@ class checks:
 				try:
 					self.mainLogger.debug('getLoadAvrgs: attempting Popen')
 					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
 					proc = subprocess.Popen(['uptime'], stdout=subprocess.PIPE, close_fds=True)
 					uptime = proc.communicate()[0]
 					
 					if int(pythonVersion[1]) >= 6:
 						try:
 							proc.kill()
-						except OSError, e:
+						except Exception, e:
 							self.mainLogger.debug('Process already terminated')
 					
 				except Exception, e:
 					import traceback
 					self.mainLogger.error('getLoadAvrgs: exception = ' + traceback.format_exc())
-					return False
-					
+					return False					
 			finally:
-				if not python24:
-					signal.alarm(0)
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 				
 			self.mainLogger.debug('getLoadAvrgs: Popen success')
 		
@@ -692,28 +668,25 @@ class checks:
 				try:
 					self.mainLogger.debug('getLoadAvrgs: attempting Popen')
 					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
 					proc = subprocess.Popen(['uptime'], stdout=subprocess.PIPE, close_fds=True)
 					uptime = proc.communicate()[0]
 					
 					if int(pythonVersion[1]) >= 6:
 						try:
 							proc.kill()
-						except OSError, e:
+						except Exception, e:
 							self.mainLogger.debug('Process already terminated')
 					
 				except Exception, e:
 					import traceback
 					self.mainLogger.error('getLoadAvrgs: exception = ' + traceback.format_exc())
-					return False
-			
+					return False			
 			finally:
-				if not python24:
-					signal.alarm(0)
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 				
 			self.mainLogger.debug('getLoadAvrgs: Popen success')
 			
@@ -740,28 +713,18 @@ class checks:
 			self.mainLogger.debug('getMemoryUsage: linux2')
 			
 			try:
-				try:
-					self.mainLogger.debug('getMemoryUsage: attempting open')
-					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
-					if sys.platform == 'linux2':
-						meminfoProc = open('/proc/meminfo', 'r')
-					else:
-						meminfoProc = open(self.linuxProcFsLocation + '/meminfo', 'r')
-					
-					lines = meminfoProc.readlines()
-					
-				except IOError, e:
-					self.mainLogger.error('getMemoryUsage: exception = ' + str(e))
-					return False
-			
-			finally:
-				if not python24:
-					signal.alarm(0)
+				self.mainLogger.debug('getMemoryUsage: attempting open')
+				
+				if sys.platform == 'linux2':
+					meminfoProc = open('/proc/meminfo', 'r')
+				else:
+					meminfoProc = open(self.linuxProcFsLocation + '/meminfo', 'r')
+				
+				lines = meminfoProc.readlines()
+				
+			except IOError, e:
+				self.mainLogger.error('getMemoryUsage: exception = ' + str(e))
+				return False
 				
 			self.mainLogger.debug('getMemoryUsage: Popen success, parsing')
 			
@@ -850,14 +813,8 @@ class checks:
 			physFree = None
 			
 			try:
-				try:
-				
+				try:				
 					self.mainLogger.debug('getMemoryUsage: attempting sysinfo')
-					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
 					
 					proc = subprocess.Popen(['sysinfo', '-v', 'mem'], stdout = subprocess.PIPE, close_fds = True)
 					sysinfo = proc.communicate()[0]
@@ -865,7 +822,7 @@ class checks:
 					if int(pythonVersion[1]) >= 6:
 						try:
 							proc.kill()
-						except OSError, e:
+						except Exception, e:
 							self.mainLogger.debug('Process already terminated')
 							
 					sysinfo = sysinfo.split('\n')
@@ -918,11 +875,13 @@ class checks:
 											
 				except Exception, e:
 					import traceback
-					self.mainLogger.error('getMemoryUsage: exception = ' + traceback.format_exc())
-			
+					self.mainLogger.error('getMemoryUsage: exception = ' + traceback.format_exc())			
 			finally:
-				if not python24:
-					signal.alarm(0)
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 							
 			if physFree == None:
 			
@@ -932,18 +891,13 @@ class checks:
 					try:
 						self.mainLogger.debug('getMemoryUsage: attempting Popen (sysctl)')
 						
-						# Force timeout using signals
-						if not python24:
-							signal.signal(signal.SIGALRM, self.signalHandler)
-							signal.alarm(15)
-						
 						proc = subprocess.Popen(['sysctl', '-n', 'hw.physmem'], stdout = subprocess.PIPE, close_fds = True)
 						physTotal = proc.communicate()[0]
 						
 						if int(pythonVersion[1]) >= 6:
 							try:
 								proc.kill()
-							except OSError, e:
+							except Exception, e:
 								self.mainLogger.debug('Process already terminated')
 						
 						self.mainLogger.debug('getMemoryUsage: attempting Popen (vmstat)')
@@ -953,18 +907,20 @@ class checks:
 						if int(pythonVersion[1]) >= 6:
 							try:
 								proc.kill()
-							except OSError, e:
+							except Exception, e:
 								self.mainLogger.debug('Process already terminated')
 		
 					except Exception, e:
 						import traceback
 						self.mainLogger.error('getMemoryUsage: exception = ' + traceback.format_exc())
 						
-						return False
-						
+						return False						
 				finally:
-					if not python24:
-						signal.alarm(0)
+					if int(pythonVersion[1]) >= 6:
+						try:
+							proc.kill()
+						except Exception, e:
+							self.mainLogger.debug('Process already terminated')
 					
 				self.mainLogger.debug('getMemoryUsage: Popen success, parsing')
 
@@ -1000,23 +956,27 @@ class checks:
 			self.mainLogger.debug('getMemoryUsage: attempting Popen (swapinfo)')
 			
 			try:
-				# Force timeout using signals
-				if not python24:
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
-				
-				proc = subprocess.Popen(['swapinfo', '-k'], stdout = subprocess.PIPE, close_fds = True)
-				swapinfo = proc.communicate()[0]
-			
-			finally:
-				if not python24:
-					signal.alarm(0)
-
-			if int(pythonVersion[1]) >= 6:
 				try:
-					proc.kill()
-				except OSError, e:
-					self.mainLogger.debug('Process already terminated')
+					proc = subprocess.Popen(['swapinfo', '-k'], stdout = subprocess.PIPE, close_fds = True)
+					swapinfo = proc.communicate()[0]
+
+					if int(pythonVersion[1]) >= 6:
+						try:
+							proc.kill()
+						except Exception, e:
+							self.mainLogger.debug('Process already terminated')
+				
+				except Exception, e:
+						import traceback
+						self.mainLogger.error('getMemoryUsage: exception = ' + traceback.format_exc())
+						
+						return False
+			finally:
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')		
 					
 			lines = swapinfo.split('\n')
 			swapUsed = 0
@@ -1043,18 +1003,13 @@ class checks:
 				try:
 					self.mainLogger.debug('getMemoryUsage: attempting Popen (top)')
 					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
 					proc = subprocess.Popen(['top', '-l 1'], stdout=subprocess.PIPE, close_fds=True)
 					top = proc.communicate()[0]
 					
 					if int(pythonVersion[1]) >= 6:
 						try:
 							proc.kill()
-						except OSError, e:
+						except Exception, e:
 							self.mainLogger.debug('Process already terminated')
 					
 					self.mainLogger.debug('getMemoryUsage: attempting Popen (sysctl)')
@@ -1064,17 +1019,19 @@ class checks:
 					if int(pythonVersion[1]) >= 6:
 						try:
 							proc.kill()
-						except OSError, e:
+						except Exception, e:
 							self.mainLogger.debug('Process already terminated')
 					
 				except Exception, e:
 					import traceback
 					self.mainLogger.error('getMemoryUsage: exception = ' + traceback.format_exc())
-					return False
-			
+					return False			
 			finally:
-				if not python24:
-					signal.alarm(0)
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 			
 			self.mainLogger.debug('getMemoryUsage: Popen success, parsing')
 			
@@ -1469,18 +1426,27 @@ class checks:
 			
 				self.agentConfig['MySQLPort'] = 3306
 				
-			if 'MySQLSocket' not in self.agentConfig
+			if 'MySQLSocket' not in self.agentConfig:
 			
-				self.agentConfig['MySQLSocket'] = None
-				
-			# Connect
-			try:
-				db = MySQLdb.connect(host=self.agentConfig['MySQLServer'], user=self.agentConfig['MySQLUser'], passwd=self.agentConfig['MySQLPass'], port=self.agentConfig['MySQLPort'], unix_socket=self.agentConfig['MySQLSocket'])
-				
-			except MySQLdb.OperationalError, message:
-				
-				self.mainLogger.error('getMySQLStatus: MySQL connection error: ' + str(message))
-				return False
+				# Connect
+				try:
+					db = MySQLdb.connect(host=self.agentConfig['MySQLServer'], user=self.agentConfig['MySQLUser'], passwd=self.agentConfig['MySQLPass'], port=self.agentConfig['MySQLPort'])
+					
+				except MySQLdb.OperationalError, message:
+					
+					self.mainLogger.error('getMySQLStatus: MySQL connection error (server): ' + str(message))
+					return False
+
+			else:
+
+				# Connect
+				try:
+					db = MySQLdb.connect(host='localhost', user=self.agentConfig['MySQLUser'], passwd=self.agentConfig['MySQLPass'], port=self.agentConfig['MySQLPort'], unix_socket=self.agentConfig['MySQLSocket'])
+					
+				except MySQLdb.OperationalError, message:
+					
+					self.mainLogger.error('getMySQLStatus: MySQL connection error (socket): ' + str(message))
+					return False			
 			
 			self.mainLogger.debug('getMySQLStatus: connected')
 			
@@ -1728,26 +1694,16 @@ class checks:
 			self.mainLogger.debug('getNetworkTraffic: linux2')
 			
 			try:
-				try:
-					self.mainLogger.debug('getNetworkTraffic: attempting open')
-					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
-					proc = open('/proc/net/dev', 'r')
-					lines = proc.readlines()
-					
-					proc.close()
-					
-				except IOError, e:
-					self.mainLogger.error('getNetworkTraffic: exception = ' + str(e))
-					return False
-					
-			finally:
-				if not python24:
-					signal.alarm(0)		
+				self.mainLogger.debug('getNetworkTraffic: attempting open')
+				
+				proc = open('/proc/net/dev', 'r')
+				lines = proc.readlines()
+				
+				proc.close()
+				
+			except IOError, e:
+				self.mainLogger.error('getNetworkTraffic: exception = ' + str(e))
+				return False
 			
 			self.mainLogger.debug('getNetworkTraffic: open success, parsing')
 			
@@ -1818,29 +1774,26 @@ class checks:
 				try:
 					self.mainLogger.debug('getNetworkTraffic: attempting Popen (netstat)')
 					
-					# Force timeout using signals
-					if not python24:
-						signal.signal(signal.SIGALRM, self.signalHandler)
-						signal.alarm(15)
-					
 					proc = subprocess.Popen(['netstat', '-nbid'], stdout=subprocess.PIPE, close_fds=True)
 					netstat = proc.communicate()[0]
 					
 					if int(pythonVersion[1]) >= 6:
 						try:
 							proc.kill()
-						except OSError, e:
+						except Exception, e:
 							self.mainLogger.debug('Process already terminated')
 					
 				except Exception, e:
 					import traceback
 					self.mainLogger.error('getNetworkTraffic: exception = ' + traceback.format_exc())
 					
-					return False
-					
+					return False					
 			finally:
-				if not python24:
-					signal.alarm(0)
+				if int(pythonVersion[1]) >= 6:
+					try:
+						proc.kill()
+					except Exception, e:
+						self.mainLogger.debug('Process already terminated')
 			
 			self.mainLogger.debug('getNetworkTraffic: open success, parsing')
 			
@@ -1934,6 +1887,7 @@ class checks:
 		if 'nginxStatusUrl' in self.agentConfig and self.agentConfig['nginxStatusUrl'] != 'http://www.example.com/nginx_status':	# Don't do it if the status URL hasn't been provided
 			self.mainLogger.debug('getNginxStatus: config set')
 			
+			
 			try:
 				try: 
 					self.mainLogger.debug('getNginxStatus: attempting urlopen')
@@ -1944,7 +1898,7 @@ class checks:
 						signal.alarm(15)
 					
 					req = urllib2.Request(self.agentConfig['nginxStatusUrl'], None, headers)
-	
+
 					# Do the request, log any errors
 					request = urllib2.urlopen(req)
 					response = request.read()
@@ -1964,8 +1918,7 @@ class checks:
 				except Exception, e:
 					import traceback
 					self.mainLogger.error('Unable to get Nginx status - Exception = ' + traceback.format_exc())
-					return False
-					
+					return False					
 			finally:
 				if not python24:
 					signal.alarm(0)
@@ -2045,18 +1998,13 @@ class checks:
 			try:
 				self.mainLogger.debug('getProcesses: attempting Popen')
 				
-				# Force timeout using signals
-				if not python24:
-					signal.signal(signal.SIGALRM, self.signalHandler)
-					signal.alarm(15)
-				
 				proc = subprocess.Popen(['ps', 'auxww'], stdout=subprocess.PIPE, close_fds=True)
 				ps = proc.communicate()[0]
 				
 				if int(pythonVersion[1]) >= 6:
 					try:
 						proc.kill()
-					except OSError, e:
+					except Exception, e:
 						self.mainLogger.debug('Process already terminated')
 				
 				self.mainLogger.debug('getProcesses: ps result - ' + str(ps))
@@ -2064,11 +2012,13 @@ class checks:
 			except Exception, e:
 				import traceback
 				self.mainLogger.error('getProcesses: exception = ' + traceback.format_exc())
-				return False
-		
+				return False		
 		finally:
-			if not python24:
-				signal.alarm(0)
+			if int(pythonVersion[1]) >= 6:
+				try:
+					proc.kill()
+				except Exception, e:
+					self.mainLogger.debug('Process already terminated')
 		
 		self.mainLogger.debug('getProcesses: Popen success, parsing')
 		
@@ -2120,10 +2070,10 @@ class checks:
 				handler = urllib2.HTTPBasicAuthHandler(manager)
 				opener = urllib2.build_opener(handler)
 				urllib2.install_opener(opener)
-	
+
 				self.mainLogger.debug('getRabbitMQStatus: attempting urlopen')
 				req = urllib2.Request(self.agentConfig['rabbitMQStatusUrl'], None, headers)
-	
+
 				# Do the request, log any errors
 				request = urllib2.urlopen(req)
 				response = request.read()
@@ -2131,27 +2081,25 @@ class checks:
 			except urllib2.HTTPError, e:
 				self.mainLogger.error('Unable to get RabbitMQ status - HTTPError = ' + str(e))
 				return False
-	
+
 			except urllib2.URLError, e:
 				self.mainLogger.error('Unable to get RabbitMQ status - URLError = ' + str(e))
 				return False
-	
+
 			except httplib.HTTPException, e:
 				self.mainLogger.error('Unable to get RabbitMQ status - HTTPException = ' + str(e))
 				return False
-	
+
 			except Exception, e:
 				import traceback
 				self.mainLogger.error('Unable to get RabbitMQ status - Exception = ' + traceback.format_exc())
-				return False
-				
+				return False				
 		finally:
 			if not python24:
 				signal.alarm(0)
 			
 		try:
-			try:
-	
+			try:	
 				# Force timeout using signals
 				if not python24:
 					signal.signal(signal.SIGALRM, self.signalHandler)
@@ -2160,13 +2108,13 @@ class checks:
 				if int(pythonVersion[1]) >= 6:
 					self.mainLogger.debug('getRabbitMQStatus: json read')
 					status = json.loads(response)
-	
+
 				else:
 					self.mainLogger.debug('getRabbitMQStatus: minjson read')
 					status = minjson.safeRead(response)
-	
+
 				self.mainLogger.debug(status)
-	
+
 				if 'connections' not in status:
 					# We are probably using the newer RabbitMQ 2.x status plugin, so try to parse that instead.
 					status = {}
@@ -2192,10 +2140,10 @@ class checks:
 					else:
 						self.mainLogger.debug('getRabbitMQStatus: connections minjson read')
 						connections = minjson.safeRead(response)
-	
+
 					status['connections'] = len(connections)
 					self.mainLogger.debug('getRabbitMQStatus: connections = %s', status['connections'])
-	
+
 					# Queues
 					url = split_url.scheme + '://' + split_url.netloc + '/api/queues'
 					self.mainLogger.debug('getRabbitMQStatus: attempting urlopen on %s', url)
@@ -2211,15 +2159,14 @@ class checks:
 					else:
 						self.mainLogger.debug('getRabbitMQStatus: queues minjson read')
 						queues = minjson.safeRead(response)
-	
+
 					status['queues'] = queues
 					self.mainLogger.debug(status['queues'])
-	
+
 			except Exception, e:
 				import traceback
 				self.mainLogger.error('Unable to load RabbitMQ status JSON - Exception = ' + traceback.format_exc())
-				return False
-				
+				return False				
 		finally:
 			if not python24:
 				signal.alarm(0)
@@ -2358,7 +2305,8 @@ class checks:
 	def doPostBack(self, postBackData):
 		self.mainLogger.debug('doPostBack: start')	
 		
-		try:		
+				
+		try:
 			try: 
 				self.mainLogger.debug('doPostBack: attempting postback: ' + self.agentConfig['sdUrl'])
 				
@@ -2391,7 +2339,6 @@ class checks:
 				import traceback
 				self.mainLogger.error('doPostBack: Exception = ' + traceback.format_exc())
 				return False
-
 		finally:
 			if not python24:
 				signal.alarm(0)
@@ -2407,8 +2354,8 @@ class checks:
 			macV = platform.mac_ver()
 		
 		if not self.topIndex: # We cache the line index from which to read from top
-			# Output from top is slightly modified on OS X 10.6 (case #28239)
-			if macV and macV[0].startswith('10.6.'):
+			# Output from top is slightly modified on OS X 10.6+ (case #28239)
+			if macV and [int(v) for v in macV[0].split('.')] >= [10, 6, 0]:
 				self.topIndex = 6
 			else:
 				self.topIndex = 5
@@ -2593,7 +2540,7 @@ class checks:
 			if int(pythonVersion[1]) >= 6:
 				try:
 					proc.kill()
-				except OSError, e:
+				except Exception, e:
 					self.mainLogger.debug('Process already terminated')
 			
 			location = re.search(r'linprocfs on (.*?) \(.*?\)', mountedPartitions)
